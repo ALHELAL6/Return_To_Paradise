@@ -1,0 +1,24 @@
+# Blender MTL File: 'Gobhopper_SkrubEdition.blend'
+# Material Count: 2
+
+newmtl Material.004
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.000000 0.000000 0.000000
+Ke 0.0 0.0 0.0
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd C:\\Users\\mag11\\Desktop\\Desktop\\VPproject\\TXTR\\GobhopperTXTR.png
+
+newmtl Material.005
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.000000 0.000000 0.000000
+Ke 0.0 0.0 0.0
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd C:\\Users\\mag11\\Desktop\\Desktop\\VPproject\\TXTR\\GobhopperTXTR2.png
