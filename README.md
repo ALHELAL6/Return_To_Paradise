@@ -6,3 +6,10 @@ Vivapinata © Microsoft Corporation. Return To Paradise also known as Down Under
 
 The Microsoft Game Content Usage Rules can be found here.
 https://www.xbox.com/en-US/developers/rules
+
+
+
+This is the Unreal 5 Project thus you can not run it without UE5.
+
+To find the Released builds go to the Return to Paradise server here.
+https://discord.com/invite/F6bawX9XWc
