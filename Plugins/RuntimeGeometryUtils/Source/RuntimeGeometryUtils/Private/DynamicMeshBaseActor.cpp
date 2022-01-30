@@ -23,6 +23,8 @@ ADynamicMeshBaseActor::ADynamicMeshBaseActor()
 	MeshAABBTree.SetMesh(&SourceMesh);
 
 	FastWinding = MakeUnique<TFastWindingTree<FDynamicMesh3>>(&MeshAABBTree, false);
+
+	MeshPool = CreateDefaultSubobject<UGeneratedMeshPool>(TEXT("MeshPool"));
 }
 
 void ADynamicMeshBaseActor::PostLoad()
@@ -106,6 +108,9 @@ void ADynamicMeshBaseActor::OnMeshEditedInternal()
 
 void ADynamicMeshBaseActor::OnMeshGenerationSettingsModified()
 {
+	// this lets PMC duplicate for PIE but we don't have our internal mesh then...
+	if (SourceType == EDynamicMeshActorSourceType::ExternallyGenerated) return;
+
 	EditMesh([this](FDynamicMesh3& MeshToUpdate) {
 		RegenerateSourceMesh(MeshToUpdate);
 	});
@@ -193,11 +198,25 @@ void ADynamicMeshBaseActor::RecomputeNormals(FDynamicMesh3& MeshOut)
 
 
 
-int ADynamicMeshBaseActor::GetTriangleCount()
+int ADynamicMeshBaseActor::GetTriangleCount() const
 {
 	return SourceMesh.TriangleCount();
 }
 
+FVector ADynamicMeshBaseActor::GetTriNormal(int TriangleID, bool bWorldSpace) const
+{
+	if (SourceMesh.IsTriangle(TriangleID))
+	{
+		FVector3d Normal = SourceMesh.GetTriNormal(TriangleID);
+		if (bWorldSpace)
+		{
+			FTransform3d ActorToWorld(GetActorTransform());
+			return (FVector)ActorToWorld.TransformNormal(Normal);
+		}
+		return (FVector)Normal;
+	}
+	return FVector(0, 0, 1);
+}
 
 float ADynamicMeshBaseActor::DistanceToPoint(FVector WorldPoint, FVector& NearestWorldPoint, int& NearestTriangle, FVector& TriBaryCoords)
 {
@@ -286,7 +305,6 @@ void ADynamicMeshBaseActor::SubtractMesh(ADynamicMeshBaseActor* OtherMeshActor)
 {
 	BooleanWithMesh(OtherMeshActor, EDynamicMeshActorBooleanOperation::Subtraction);
 }
-
 void ADynamicMeshBaseActor::UnionWithMesh(ADynamicMeshBaseActor* OtherMeshActor)
 {
 	BooleanWithMesh(OtherMeshActor, EDynamicMeshActorBooleanOperation::Union);
@@ -370,7 +388,7 @@ bool ADynamicMeshBaseActor::ImportMesh(FString Path, bool bFlipOrientation, bool
 }
 
 
-void ADynamicMeshBaseActor::CopyFromMesh(ADynamicMeshBaseActor* OtherMesh, bool bRecomputeNormals)
+void ADynamicMeshBaseActor::CopyFromMeshActor(ADynamicMeshBaseActor* OtherMesh, bool bRecomputeNormals)
 {
 	if (! ensure(OtherMesh) ) return;
 
@@ -391,6 +409,33 @@ void ADynamicMeshBaseActor::CopyFromMesh(ADynamicMeshBaseActor* OtherMesh, bool 
 	});
 }
 
+
+
+void ADynamicMeshBaseActor::CopyFromMesh(UGeneratedMesh* GeneratedMesh, bool bRecomputeNormals, bool bDeferComponentUpdate)
+{
+	if (!GeneratedMesh) return;
+
+	const TUniquePtr<FDynamicMesh3>& OtherMesh = GeneratedMesh->GetMesh();
+
+	if ( bDeferComponentUpdate )
+	{
+		SourceMesh.CompactCopy(*OtherMesh);
+	}
+	else
+	{
+		// update the mesh
+		EditMesh([&](FDynamicMesh3& MeshToUpdate)
+		{
+			//MeshToUpdate.Copy(*OtherMesh);
+			MeshToUpdate.CompactCopy(*OtherMesh);
+			if (bRecomputeNormals)
+			{
+				RecomputeNormals(MeshToUpdate);
+			}
+		});
+	}
+}
+
 //Funtion to output mesh to .obj
 void ADynamicMeshBaseActor::ExportMesh(ADynamicMeshBaseActor* OtherMeshActor, FString Path, bool ReverseOrientation)
 {
@@ -402,6 +447,7 @@ void ADynamicMeshBaseActor::ExportMesh(ADynamicMeshBaseActor* OtherMeshActor, FS
 
 
 }
+
 
 void ADynamicMeshBaseActor::SolidifyMesh(int VoxelResolution, float WindingThreshold)
 {
@@ -439,10 +485,9 @@ void ADynamicMeshBaseActor::SolidifyMesh(int VoxelResolution, float WindingThres
 		MeshToUpdate = MoveTemp(SolidMesh);
 	});
 }
-
 void ADynamicMeshBaseActor::CleanMesh(ADynamicMeshBaseActor* OtherMeshActor)
 {
-	
+
 	// ugh workaround for bug
 	FDynamicMesh3 CompactMesh;
 	CompactMesh.CompactCopy(SourceMesh, false, false, false, false);
@@ -461,8 +506,8 @@ void ADynamicMeshBaseActor::CleanMesh(ADynamicMeshBaseActor* OtherMeshActor)
 
 void ADynamicMeshBaseActor::SimplifyMeshToTriCount(int32 TargetTriangleCount)
 {
-	//TargetTriangleCount = FMath::Max(1, TargetTriangleCount);
-	//if (TargetTriangleCount >= SourceMesh.TriangleCount()) return;
+	TargetTriangleCount = FMath::Max(1, TargetTriangleCount);
+	if (TargetTriangleCount >= SourceMesh.TriangleCount()) return;
 
 	// make compacted copy because it seems to change the results?
 	FDynamicMesh3 SimplifyMesh;
@@ -474,27 +519,74 @@ void ADynamicMeshBaseActor::SimplifyMeshToTriCount(int32 TargetTriangleCount)
 	RecomputeNormals(SimplifyMesh);
 
 	EditMesh([&](FDynamicMesh3& MeshToUpdate)
-		{
-			MeshToUpdate.CompactCopy(SimplifyMesh);
-		});
+	{
+		MeshToUpdate.CompactCopy(SimplifyMesh);
+	});
 }
 
-void ADynamicMeshBaseActor::SimplifyMeshToVerCount(int32 TargetVertexCount)
+
+
+
+UGeneratedMesh* ADynamicMeshBaseActor::AllocateComputeMesh()
 {
-	//TargetTriangleCount = FMath::Max(1, TargetTriangleCount);
-	//if (TargetTriangleCount >= SourceMesh.TriangleCount()) return;
-
-	// make compacted copy because it seems to change the results?
-	FDynamicMesh3 SimplifyMesh;
-	SimplifyMesh.CompactCopy(SourceMesh, false, false, false, false);
-	SimplifyMesh.EnableTriangleGroups();			// workaround for failing check()
-	FQEMSimplification Simplifier(&SimplifyMesh);
-	Simplifier.SimplifyToVertexCount(TargetVertexCount);
-	//SimplifyMesh.EnableAttributes();
-	RecomputeNormals(SimplifyMesh);
-
-	EditMesh([&](FDynamicMesh3& MeshToUpdate)
+	if (bEnableComputeMeshPool)
+	{
+		if (MeshPool == nullptr)
 		{
-			MeshToUpdate.CompactCopy(SimplifyMesh);
-		});
+			MeshPool = NewObject<UGeneratedMeshPool>(this);
+		}
+		return MeshPool->RequestMesh();
+	}
+	else
+	{
+		return NewObject<UGeneratedMesh>(this);
+	}
+}
+
+
+void ADynamicMeshBaseActor::ReleaseComputeMesh(UGeneratedMesh* Mesh)
+{
+	if (bEnableComputeMeshPool && Mesh)
+	{
+		if (MeshPool == nullptr)
+		{
+			MeshPool = NewObject<UGeneratedMeshPool>(this);
+		}
+		MeshPool->ReturnMesh(Mesh);
+	}
+}
+
+void ADynamicMeshBaseActor::ReleaseComputeMeshes(TArray<UGeneratedMesh*> Meshes)
+{
+	if (bEnableComputeMeshPool)
+	{
+		if (MeshPool == nullptr)
+		{
+			MeshPool = NewObject<UGeneratedMeshPool>(this);
+		}
+		for (UGeneratedMesh* Mesh : Meshes)
+		{
+			if (Mesh)
+			{
+				MeshPool->ReturnMesh(Mesh);
+			}
+		}
+	}
+}
+
+
+void ADynamicMeshBaseActor::ReleaseAllComputeMeshes()
+{
+	if (MeshPool)
+	{
+		MeshPool->ReturnAllMeshes();
+	}
+}
+
+void ADynamicMeshBaseActor::FreeAllComputeMeshes()
+{
+	if (MeshPool)
+	{
+		MeshPool->FreeAllMeshes();
+	}
 }

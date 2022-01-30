@@ -5,13 +5,14 @@
 #include "DynamicMesh3.h"
 #include "DynamicMeshAABBTree3.h"
 #include "Spatial/FastWinding.h"
+#include "GeneratedMesh.h"
 #include "DynamicMeshBaseActor.generated.h"
 
 
 /**
  * Type of Normals computation used by ADynamicMeshBaseActor
  */
-UENUM()
+UENUM(BlueprintType)
 enum class EDynamicMeshActorNormalsMode : uint8
 {
 	SplitNormals = 0,
@@ -23,18 +24,22 @@ enum class EDynamicMeshActorNormalsMode : uint8
 /**
  * Source of mesh used to initialize ADynamicMeshBaseActor
  */
-UENUM()
+UENUM(BlueprintType)
 enum class EDynamicMeshActorSourceType : uint8
 {
+	/** Initialize the mesh with a generated 3D primitive shape (box,sphere,etc) */
 	Primitive,
-	ImportedMesh
+	/** Initialize the mesh by importing an external mesh file (OBJ format) */
+	ImportedMesh,
+	/** Do not Initialize the mesh, allow an external source (eg a Construction Script) to initialize it */
+	ExternallyGenerated
 };
 
 
 /**
  * Geometric primitive types supported of by ADynamicMeshBaseActor
  */
-UENUM()
+UENUM(BlueprintType)
 enum class EDynamicMeshActorPrimitiveType : uint8
 {
 	Sphere,
@@ -54,12 +59,20 @@ enum class EDynamicMeshActorBooleanOperation : uint8
 };
 
 
+/**
+ * Auto-Generated Collision mode for an ADynamicMeshBaseActor (only works with DynamicPMCActor)
+ */
 UENUM(BlueprintType)
 enum class EDynamicMeshActorCollisionMode : uint8
 {
+	/** No auto-generated collision */
 	NoCollision,
+	/** Complex Collision generated directly from the triangle mesh */
 	ComplexAsSimple,
-	ComplexAsSimpleAsync
+	/** Complex Collision generated directly from the triangle mesh, but computed asynchronously (so not immediately available) */
+	ComplexAsSimpleAsync,
+	/** Simple Collision initialized by a single Convex Hull fit to the entire triangle mesh */
+	SimpleConvexHull
 };
 
 
@@ -106,19 +119,19 @@ public:
 
 public:
 	/** Type of mesh used to initialize this Actor - either a generated mesh Primitive or an Imported OBJ file */
-	UPROPERTY(EditAnywhere, Category = MeshOptions)
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor")
 	EDynamicMeshActorSourceType SourceType = EDynamicMeshActorSourceType::Primitive;
 
 	/** Type of normals computed for the Mesh */
-	UPROPERTY(EditAnywhere, Category = MeshOptions)
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor")
 	EDynamicMeshActorNormalsMode NormalsMode = EDynamicMeshActorNormalsMode::SplitNormals;
 
 	/** Material assigned to child Components created by subclasses */
-	UPROPERTY(EditAnywhere, Category = MaterialOptions)
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|MaterialOverride")
 	UMaterialInterface* Material;
 
 	/** If true, mesh will be regenerated or re-imported on tick. Can be useful for prototyping procedural animation, but not the most efficient way to do it */
-	UPROPERTY(EditAnywhere, Category = PrimitiveOptions, meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|PrimitiveOptions", meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
 	bool bRegenerateOnTick = false;
 
 	//
@@ -126,19 +139,19 @@ public:
 	// 
 
 	/** Path to OBJ file read to initialize mesh in SourceType=Imported mode */
-	UPROPERTY(EditAnywhere, Category = ImportOptions, meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::ImportedMesh", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|ImportOptions", meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::ImportedMesh", EditConditionHides))
 	FString ImportPath;
 
 	/** Whether the imported mesh should have it's triangles reversed (commonly required for meshes authored in DCC tools) */
-	UPROPERTY(EditAnywhere, Category = ImportOptions, meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::ImportedMesh", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|ImportOptions", meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::ImportedMesh", EditConditionHides))
 	bool bReverseOrientation = true;
 
 	/** If true the imported mesh will be recentered around the origin */
-	UPROPERTY(EditAnywhere, Category = ImportOptions, meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::ImportedMesh", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|ImportOptions", meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::ImportedMesh", EditConditionHides))
 	bool bCenterPivot = true;
 
 	/** Uniform scaling applied to the imported mesh (baked into the mesh vertices, not the actor Transform) */
-	UPROPERTY(EditAnywhere, Category = ImportOptions, meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::ImportedMesh", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|ImportOptions", meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::ImportedMesh", EditConditionHides))
 	float ImportScale = 1.0;
 
 
@@ -147,27 +160,27 @@ public:
 	//
 
 	/** Type of generated mesh primitive */
-	UPROPERTY(EditAnywhere, Category = PrimitiveOptions, meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|PrimitiveOptions", meta = (EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
 	EDynamicMeshActorPrimitiveType PrimitiveType = EDynamicMeshActorPrimitiveType::Box;
 
 	/** Triangle density of generated primitive */
-	UPROPERTY(EditAnywhere, Category = PrimitiveOptions, meta = (UIMin = 0, UIMax = 50, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|PrimitiveOptions", meta = (UIMin = 0, UIMax = 50, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
 	int TessellationLevel = 8;
 
 	/** Radius of generated sphere / Width of generated box */
-	UPROPERTY(EditAnywhere, Category = PrimitiveOptions, meta = (UIMin = 0, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|PrimitiveOptions", meta = (UIMin = 0, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
 	float MinimumRadius = 50;
 
 	/** Multiplier on MinimumRadius used to define box depth (ie dimension on Z axis) */
-	UPROPERTY(EditAnywhere, Category = PrimitiveOptions, meta = (UIMin = 0.01, UIMax = 1.0, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive && PrimitiveType == EDynamicMeshActorPrimitiveType::Box", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|PrimitiveOptions", meta = (UIMin = 0.01, UIMax = 1.0, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive && PrimitiveType == EDynamicMeshActorPrimitiveType::Box", EditConditionHides))
 	float BoxDepthRatio = 1.0;
 
 	/** A random value in range [-VariableRadius, VariableRadius] is added to MinimumRadius */
-	UPROPERTY(EditAnywhere, Category = PrimitiveOptions, meta = (UIMin = 0, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|PrimitiveOptions", meta = (UIMin = 0, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
 	float VariableRadius = 0;
 
 	/** Speed of variation of VariableRadius, only has an effect when bRegenerateOnTick is true */
-	UPROPERTY(EditAnywhere, Category = PrimitiveOptions, meta = (UIMin = 0, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|PrimitiveOptions", meta = (UIMin = 0, EditCondition = "SourceType == EDynamicMeshActorSourceType::Primitive", EditConditionHides))
 	float PulseSpeed = 3.0;
 
 
@@ -226,10 +239,10 @@ protected:
 	// Support for AABBTree / Spatial Queries
 	//
 public:
-	UPROPERTY(EditAnywhere, Category = SpatialQueryOptions)
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|SpatialQueries")
 	bool bEnableSpatialQueries = false;
 
-	UPROPERTY(EditAnywhere, Category = SpatialQueryOptions)
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|SpatialQueries")
 	bool bEnableInsideQueries = false;
 
 protected:
@@ -243,8 +256,17 @@ protected:
 	// Support for Runtime-Generated Collision
 	//
 public:
-	UPROPERTY(EditAnywhere, Category = RuntimeCollisionOptions)
+	/**
+	 * Auto-Generated Collision Mode for this Actor (currently only works with DynamicPMCActor subclass)
+	 */
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|RuntimeCollision")
 	EDynamicMeshActorCollisionMode CollisionMode = EDynamicMeshActorCollisionMode::NoCollision;
+
+	/**
+	 * Maximum number of triangles used in the (approximate) convex hull for auto-generated Convex Hull Simple Collision
+	 */
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|RuntimeCollision", meta=(EditCondition = "CollisionMode == EDynamicMeshActorCollisionMode::SimpleConvexHull", EditConditionHides))
+	int MaxHullTriangles = 25;
 
 
 	//
@@ -294,20 +316,26 @@ public:
 	 * Note: Path may be relative to Content folder, otherwise it must be an absolute path.
 	 * @return false if mesh read failed
 	 */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Initialization")
 	bool ImportMesh(FString Path, bool bFlipOrientation, bool bRecomputeNormals);
 
 	/** Copy the SourceMesh of OtherMesh into our SourceMesh, and optionally recompute normals */
-	UFUNCTION(BlueprintCallable)
-	void CopyFromMesh(ADynamicMeshBaseActor* OtherMesh, bool bRecomputeNormals);
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Initialization")
+	void CopyFromMeshActor(ADynamicMeshBaseActor* OtherMesh, bool bRecomputeNormals);
+
+	/** 
+	 * Copy the SourceMesh of GeneratedMesh into our SourceMesh, and optionally recompute normals.
+	 * @param bDeferComponentUpdate If true, then the child mesh Component is not updated, so the Actor will not visually reflect the updated Mesh.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Initialization")
+	void CopyFromMesh(UGeneratedMesh* GeneratedMesh, bool bRecomputeNormals = false, bool bDeferComponentUpdate = false);
 
 	/**
 	 *
 	 *Export Mesh to .OBJ
 	 */
 	UFUNCTION(BlueprintCallable)
-	void ExportMesh(ADynamicMeshBaseActor* OtherMeshActor, FString Path, bool ReverseOrientation);
-
+		void ExportMesh(ADynamicMeshBaseActor* OtherMeshActor, FString Path, bool ReverseOrientation);
 
 	//
 	// Mesh Spatial Queries API
@@ -317,19 +345,19 @@ public:
 	 * Find NearestMeshWorldPoint on SourceMesh to WorldPoint, as well as NearestTriangle ID and barycentric coordinates of NearestMeshWorldPoint in triangle
 	 * @return distance to point
 	 */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|SpatialQueries")
 	float DistanceToPoint(FVector WorldPoint, FVector& NearestMeshWorldPoint, int& NearestTriangle, FVector& TriBaryCoords);
 
 	/**
 	 * @return nearest world-space point on SourceMesh to WorldPoint
 	 */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|SpatialQueries")
 	FVector NearestPoint(FVector WorldPoint);
 
 	/**
 	 * @return true if mesh contains WorldPoint, which is defined as the mesh winding number being >= WindingThreshold
 	 */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|SpatialQueries")
 	bool ContainsPoint(FVector WorldPoint, float WindingThreshold = 0.5);
 
 	/**
@@ -338,7 +366,7 @@ public:
 	 * Pass MaxDistance > 0 to limit the allowable ray-hit distance
 	 * @return true if hit is found
 	 */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|SpatialQueries")
 	bool IntersectRay(FVector RayOrigin, FVector RayDirection, FVector& WorldHitPoint, float& HitDistance, int& NearestTriangle, FVector& TriBaryCoords, float MaxDistance = 0);
 
 
@@ -349,39 +377,70 @@ public:
 public:
 
 	/** Compute the specified a Boolean operation with OtherMesh (transformed to world space) and store in our SourceMesh */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Composition")
 	void BooleanWithMesh(ADynamicMeshBaseActor* OtherMesh, EDynamicMeshActorBooleanOperation Operation);
 
 	/** Subtract OtherMesh from our SourceMesh */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|CompositionOps")
 	void SubtractMesh(ADynamicMeshBaseActor* OtherMesh);
 
 	/** Union OtherMesh with our SourceMesh */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|CompositionOps")
 	void UnionWithMesh(ADynamicMeshBaseActor* OtherMesh);
 
 	/** Intersect OtherMesh with our SourceMesh */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|CompositionOps")
 	void IntersectWithMesh(ADynamicMeshBaseActor* OtherMesh);
 
 	/** Create a "solid" verison of SourceMesh by voxelizing with the fast winding number at the given grid resolution */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|RemeshingOps")
 	void SolidifyMesh(int VoxelResolution = 64, float WindingThreshold = 0.5);
-
-	/** Simplify current SourceMesh to the target triangle count */
-	UFUNCTION(BlueprintCallable)
-	void SimplifyMeshToTriCount(int32 TargetTriangleCount);
-
-	/** Simplify current SourceMesh to the target triangle count */
-	UFUNCTION(BlueprintCallable)
-		void SimplifyMeshToVerCount(int32 TargetVertexCount);
 
 	/** Create a "solid" verison of Provided Mesh */
 	UFUNCTION(BlueprintCallable)
 		void CleanMesh(ADynamicMeshBaseActor* OtherMeshActor);
 
+	/** Simplify current SourceMesh to the target triangle count */
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|RemeshingOps")
+	void SimplifyMeshToTriCount(int32 TargetTriangleCount);
+
 public:
 	/** @return number of triangles in current SourceMesh */
-	UFUNCTION(BlueprintCallable)
-	int GetTriangleCount();
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|MeshQueries")
+	int GetTriangleCount() const;
+
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|MeshQueries")
+	FVector GetTriNormal(int TriangleID, bool bWorldSpace) const;
+
+
+protected:
+	UPROPERTY(Transient)
+	UGeneratedMeshPool* MeshPool = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "DynamicMeshActor|Pooling")
+	bool bEnableComputeMeshPool = true;
+
+
+public:
+	/** @return an available GeneratedMesh (either newly-allocated or re-used from pool). See UGeneratedMeshPool. */
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Pooling")
+	UGeneratedMesh* AllocateComputeMesh();
+
+	/** Release a GeneratedMesh returned by AllocateComputeMesh() */
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Pooling")
+	void ReleaseComputeMesh(UGeneratedMesh* Mesh);
+
+	/** Release a list of GeneratedMesh returned by AllocateComputeMesh() */
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Pooling")
+	void ReleaseComputeMeshes(TArray<UGeneratedMesh*> Meshes);
+
+	/** Release all GeneratedMesh instances returned by AllocateComputeMesh() */
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Pooling")
+	void ReleaseAllComputeMeshes();
+
+	/** Release all GeneratedMesh instances returned by AllocateComputeMesh() and allow them to be garbage-collected */
+	UFUNCTION(BlueprintCallable, Category = "DynamicMeshActor|Pooling")
+	void FreeAllComputeMeshes();
+
+
 };

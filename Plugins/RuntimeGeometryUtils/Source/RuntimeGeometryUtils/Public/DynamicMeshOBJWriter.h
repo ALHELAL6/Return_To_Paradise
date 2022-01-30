@@ -10,7 +10,6 @@ namespace RTGUtils
 	 * @param bReverseOrientation if true, mesh orientation/normals are flipped. You probably want this for exporting from UE4 to other apps.
 	 * @param return false if write failed
 	 */
-	UFUNCTION(BlueprintCallable)
 	RUNTIMEGEOMETRYUTILS_API bool WriteOBJMesh(
 		const FString& OutputPath,
 		const FDynamicMesh3& Mesh,

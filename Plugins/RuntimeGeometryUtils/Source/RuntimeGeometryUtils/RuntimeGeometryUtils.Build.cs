@@ -28,14 +28,16 @@ public class RuntimeGeometryUtils : ModuleRules
 				"Core",
 				"GeometricObjects",
 				"DynamicMesh",
-				"ProceduralMeshComponent",
-				"ModelingComponents"
-				// ... add other public dependencies that you statically link with here ...
+				"ProceduralMeshComponent"
 			}
 			);
-			
-		
-		PrivateDependencyModuleNames.AddRange(
+
+        if ((Target.Platform == UnrealTargetPlatform.Win64)) {
+			PublicDependencyModuleNames.Add("ModelingComponents");
+        }
+
+
+        PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"CoreUObject",
@@ -43,8 +45,7 @@ public class RuntimeGeometryUtils : ModuleRules
 				"MeshDescription",
 				"StaticMeshDescription",
 				"GeometryAlgorithms",
-				"MeshConversion",
-				// ... add private dependencies that you statically link with here ...	
+				"MeshConversion"
 			}
 			);
 		
@@ -52,7 +53,6 @@ public class RuntimeGeometryUtils : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
-				// ... add any modules that your module loads dynamically here ...
 			}
 			);
 	}
