@@ -627,7 +627,7 @@ TArray<float> UHeightmapDeformersLibrary::Conv_GreyScaleTexture2DToFloatArray(UT
 	{
 		//Ensure settings for floaty rgba
 		//InTexture->CompressionSettings = TextureCompressionSettings::TC_VectorDisplacementmap;
-		InTexture->MipGenSettings = TextureMipGenSettings::TMGS_NoMipmaps;
+		//InTexture->MipGenSettings = TextureMipGenSettings::TMGS_NoMipmaps;
 		InTexture->SRGB = false;
 		InTexture->UpdateResource();
 		uint8* MipData = static_cast<uint8*>(InTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_ONLY));
