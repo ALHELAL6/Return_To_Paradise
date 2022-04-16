@@ -40,10 +40,6 @@
 			"Enabled": true
 		},
 		{
-			"Name": "DatasmithRuntime",
-			"Enabled": true
-		},
-		{
 			"Name": "Bridge",
 			"Enabled": true,
 			"SupportedTargetPlatforms": [
