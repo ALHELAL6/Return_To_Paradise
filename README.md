@@ -16,11 +16,10 @@ This is the Unreal 5 Project thus you can not run it without UE5.
 To find the Released builds go to the Return to Paradise server here.
 https://discord.com/invite/F6bawX9XWc
 
+
+
+
 ## Setting it up:
-
-The application is written in Visual Studio 2017.
-
-Everything that you need to modify to get the launcher working with your settings, is in the "Constants.cs" class. Assuming that you've already downloaded and opened the solution (UniversalGameLauncher.sln), go ahead and open up Constants.cs now.
 
 1. Clone this Repo (With github desktop)
 
