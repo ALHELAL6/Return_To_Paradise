@@ -70,6 +70,18 @@
 		{
 			"Name": "SunPosition",
 			"Enabled": true
+		},
+		{
+			"Name": "GameFeatures",
+			"Enabled": true
+		},
+		{
+			"Name": "ModularGameplay",
+			"Enabled": true
+		},
+		{
+			"Name": "LogicCore",
+			"Enabled": true
 		}
 	],
 	"TargetPlatforms": [
