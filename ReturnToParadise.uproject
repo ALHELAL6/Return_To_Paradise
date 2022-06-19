@@ -82,6 +82,14 @@
 		{
 			"Name": "LogicCore",
 			"Enabled": true
+		},
+		{
+			"Name": "Uranium-235",
+			"Enabled": true
+		},
+		{
+			"Name": "Shaders",
+			"Enabled": false
 		}
 	],
 	"TargetPlatforms": [
