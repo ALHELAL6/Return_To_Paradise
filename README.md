@@ -1,5 +1,7 @@
 # Return To Paradise
 
+# This repository will become read-only on 7/9/22. Please fork the project if you want to work on it.
+
 Developed with Unreal Engine 5
 
 Vivapinata © Microsoft Corporation. Return To Paradise also known as Down Under Paradise 
