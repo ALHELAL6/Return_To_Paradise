@@ -12,7 +12,7 @@ https://www.xbox.com/en-US/developers/rules
 
 This is the Unreal 5 Project thus you can not run it without UE5.
 
-## Setting it up:
+## Setting the project up:
 
 1. Clone this Repo (With github desktop and git-LFS)
 
