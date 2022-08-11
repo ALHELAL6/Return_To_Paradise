@@ -14,12 +14,6 @@ https://www.xbox.com/en-US/developers/rules
 
 This is the Unreal 5 Project thus you can not run it without UE5.
 
-To find the Released builds go to the Return to Paradise server here.
-https://discord.com/invite/F6bawX9XWc
-
-
-
-
 ## Setting it up:
 
 1. Clone this Repo (With github desktop)
