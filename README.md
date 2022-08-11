@@ -10,13 +10,11 @@ it is not endorsed by or affiliated with Microsoft.
 The Microsoft Game Content Usage Rules can be found here.
 https://www.xbox.com/en-US/developers/rules
 
-
-
 This is the Unreal 5 Project thus you can not run it without UE5.
 
 ## Setting it up:
 
-1. Clone this Repo (With github desktop)
+1. Clone this Repo (With github desktop and git-LFS)
 
 2. Download UE5 from Epic Games launcher and download Virtual Studio 2019-2022
 
