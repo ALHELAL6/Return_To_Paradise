@@ -63,11 +63,6 @@
 			"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/4f737815666c4e7dabf2043fb55a8419"
 		},
 		{
-			"Name": "PlayFab",
-			"Enabled": true,
-			"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/217fdf581b784571af03d3fb6580368f"
-		},
-		{
 			"Name": "SunPosition",
 			"Enabled": true
 		},
